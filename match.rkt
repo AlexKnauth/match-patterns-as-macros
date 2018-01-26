@@ -2,7 +2,7 @@
 
 (provide (all-defined-out))
 
-(require "util/maybe.rkt" "util/stx.rkt")
+(require anaphoric "util/maybe.rkt" "util/stx.rkt")
 
 (define-for-syntax (get-vars stx)
   (map syntax-local-introduce (syntax-property stx 'vars)))
@@ -36,9 +36,8 @@
     [else
      (define pat  (first (first clauses)))
      (define body (second (first clauses)))
-     (let ([patv (pat v)])
-       (cond [patv (apply body patv)]
-             [else (match/fn v (rest clauses))]))]))
+     (cond-let [[patv (pat v)] (apply body patv)]
+               [else           (match/fn v (rest clauses))])]))
 
 ;; --------------------------------------------------------------
 
@@ -136,11 +135,10 @@
   (define (process-elements lst acc)
     (cond [(empty? lst) (process-rest lst acc)]
           [(cons? lst)
-           (let ([fst (elem-pat (car lst))])
-             (if fst
-                 (or (process-elements (cdr lst) (cons fst acc))
-                     (process-rest lst acc))
-                 (process-rest lst acc)))]
+           (if-let [fst (elem-pat (car lst))]
+                   (or (process-elements (cdr lst) (cons fst acc))
+                       (process-rest lst acc))
+                   (process-rest lst acc))]
           [else
            (process-rest lst acc)]))
   ;; [Listof X] [Listof [Listof Any]] -> [Maybe [Listof [Listof Any]]]

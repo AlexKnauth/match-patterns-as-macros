@@ -1,6 +1,6 @@
 #lang agile
 
-(provide ?do ?append ?map)
+(provide ?do ?append)
 
 ;; do notation for the Maybe monad, pronouned maybe-do
 (define-syntax-parser ?do
@@ -12,11 +12,4 @@
 (define-simple-macro (?append a:expr ...)
   #:with [av ...] (generate-temporaries #'[a ...])
   (?do [av <- a] ... (append av ...)))
-
-;; ?map : [X -> [Maybe Y]] [Listof X] -> [Maybe [Listof Y]]
-(define (?map f lst)
-  (cond [(empty? lst) '()]
-        [else (?do [f-fst <- (f (first lst))]
-                   [f-rst <- (?map f (rest lst))]
-                   (cons f-fst f-rst))]))
 
