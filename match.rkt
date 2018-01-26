@@ -72,18 +72,18 @@
    #'(vars (a.x ... ...) (list/p a.value ...))]
   [(_ a:pat ... (~seq b:pat ooo:ooo c:pat ...) ...)
    #:with [[x ...] ...]   #'[[a.x ... ...] [b.x ... c.x ... ...] ...]
-   #:with [[val ...] ...] #'[[a.value ...] [b.value 'ooo c.value ...] ...]
+   #:with [[val ...] ...] #'[[a.value ...] [(repeat b.value) c.value ...] ...]
    #'(vars (x ... ...)
-       (list/.../p (list val ... ...)))])
+       (list/rep/p (list val ... ...)))])
 
 (define-syntax-parser list*:
   [(list*: a:pat ... b:pat)
    #'(vars (a.x ... ... b.x ...) (list*/p (list a.value ...) b.value))]
   [(list*: a:pat ... (~seq b:pat ooo:ooo c:pat ...) ... d:pat)
    #:with [[x ...] ...]   #'[[a.x ... ...] [b.x ... c.x ... ...] ...]
-   #:with [[val ...] ...] #'[[a.value ...] [b.value 'ooo c.value ...] ...]
+   #:with [[val ...] ...] #'[[a.value ...] [(repeat b.value) c.value ...] ...]
    #'(vars (x ... ... d.x ...)
-       (list*/.../p (list val ... ...) d.value))])
+       (list*/rep/p (list val ... ...) d.value))])
 
 ;; --------------------------------------------------------------
 
@@ -152,25 +152,23 @@
     (?append (apply map list (reverse acc)) (rst-pat lst)))
   (process-elements v '()))
 
-(define (list/.../p pats)
-  (cond [(empty? pats)           empty/p]
-        [(eq? (first pats) '...) (error 'match "unexpected `...`")]
-        [(empty? (rest pats))    (list/p (first pats))]
-        [(eq? (second pats) '...)
-         (if (empty? (rest (rest pats)))
-             (listof/p (first pats))
-             (listof/rest/p (first pats) (list/.../p (rest (rest pats)))))]
-        [else
-         (cons/p (first pats) (list/.../p (rest pats)))]))
+(struct repeat [pat] #:transparent)
 
-(define (list*/.../p pats rst-pat)
-  (cond [(empty? pats)           rst-pat]
-        [(eq? (first pats) '...) (error 'match "unexpected `...`")]
-        [(empty? (rest pats))    (cons/p (first pats) rst-pat)]
-        [(eq? (second pats) '...)
-         (listof/rest/p (first pats) (list*/.../p (rest (rest pats)) rst-pat))]
+(define (list/rep/p pats)
+  (cond [(empty? pats)  empty/p]
+        [(repeat? (first pats))
+         (if (empty? (rest pats))
+             (listof/p (repeat-pat (first pats)))
+             (listof/rest/p (repeat-pat (first pats)) (list/rep/p (rest pats))))]
         [else
-         (cons/p (first pats) (list*/.../p (rest pats) rst-pat))]))
+         (cons/p (first pats) (list/rep/p (rest pats)))]))
+
+(define (list*/rep/p pats rst-pat)
+  (cond [(empty? pats)  rst-pat]
+        [(repeat? (first pats))
+         (listof/rest/p (repeat-pat (first pats)) (list*/rep/p (rest pats) rst-pat))]
+        [else
+         (cons/p (first pats) (list*/rep/p (rest pats) rst-pat))]))
 
 ;; --------------------------------------------------------------
 
