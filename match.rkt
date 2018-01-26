@@ -67,23 +67,17 @@
 (define-simple-macro (cons: a:pat b:pat)
   (vars (a.x ... b.x ...) (cons/p a.value b.value)))
 
-(define-syntax-parser list:
-  [(_ a:pat ...)
-   #'(vars (a.x ... ...) (list/p a.value ...))]
-  [(_ a:pat ... (~seq b:pat ooo:ooo c:pat ...) ...)
-   #:with [[x ...] ...]   #'[[a.x ... ...] [b.x ... c.x ... ...] ...]
-   #:with [[val ...] ...] #'[[a.value ...] [(repeat b.value) c.value ...] ...]
-   #'(vars (x ... ...)
-       (list/rep/p (list val ... ...)))])
+(begin-for-syntax
+  (define-splicing-syntax-class pat/repeat  #:attributes [[x 1] value]
+    [pattern (~seq p:pat :ooo)
+      #:with [[x ...] value] #'[[p.x ...] (repeat p.value)]]
+    [pattern (~seq :pat)]))
 
-(define-syntax-parser list*:
-  [(list*: a:pat ... b:pat)
-   #'(vars (a.x ... ... b.x ...) (list*/p (list a.value ...) b.value))]
-  [(list*: a:pat ... (~seq b:pat ooo:ooo c:pat ...) ... d:pat)
-   #:with [[x ...] ...]   #'[[a.x ... ...] [b.x ... c.x ... ...] ...]
-   #:with [[val ...] ...] #'[[a.value ...] [(repeat b.value) c.value ...] ...]
-   #'(vars (x ... ... d.x ...)
-       (list*/rep/p (list val ... ...) d.value))])
+(define-simple-macro (list: a:pat/repeat ...)
+  (vars (a.x ... ...) (list/p a.value ...)))
+
+(define-simple-macro (list*: a:pat/repeat ... b:pat)
+  (vars (a.x ... ... b.x ...) (list*/p (list a.value ...) b.value)))
 
 ;; --------------------------------------------------------------
 
@@ -121,18 +115,20 @@
 (define ((cons/p a b) v)
   (and (cons? v) (?append (a (car v)) (b (cdr v)))))
 
+(struct repeat [pat] #:transparent)
+
+;; cons/rep/p : (U Pat (repeat Pat)) Pat -> Pat
+(define (cons/rep/p a b)
+  (cond [(repeat? a) (listof/rest/p (repeat-pat a) b)]
+        [else        (cons/p a b)]))
+
 ;; list/p : Pat ... -> Pat
 (define (list/p . pats)
-  (foldr cons/p empty/p pats))
+  (foldr cons/rep/p empty/p pats))
 
 ;; list*/p : [Listof Pat] Pat -> Pat
 (define (list*/p init-pats last-pat)
-  (foldr cons/p last-pat init-pats))
-
-;; listof/p : Pat -> Pat
-(define ((listof/p pat) v)
-  (?do [seq-vars <- (?map pat v)]
-       (apply map list seq-vars)))
+  (foldr cons/rep/p last-pat init-pats))
 
 ;; listof/rest/p : Pat Pat -> Pat
 (define ((listof/rest/p elem-pat rst-pat) v)
@@ -151,24 +147,6 @@
   (define (process-rest lst acc)
     (?append (apply map list (reverse acc)) (rst-pat lst)))
   (process-elements v '()))
-
-(struct repeat [pat] #:transparent)
-
-(define (list/rep/p pats)
-  (cond [(empty? pats)  empty/p]
-        [(repeat? (first pats))
-         (if (empty? (rest pats))
-             (listof/p (repeat-pat (first pats)))
-             (listof/rest/p (repeat-pat (first pats)) (list/rep/p (rest pats))))]
-        [else
-         (cons/p (first pats) (list/rep/p (rest pats)))]))
-
-(define (list*/rep/p pats rst-pat)
-  (cond [(empty? pats)  rst-pat]
-        [(repeat? (first pats))
-         (listof/rest/p (repeat-pat (first pats)) (list*/rep/p (rest pats) rst-pat))]
-        [else
-         (cons/p (first pats) (list*/rep/p (rest pats) rst-pat))]))
 
 ;; --------------------------------------------------------------
 

@@ -120,8 +120,8 @@
 
 ;; listof/p
 (module+ test
-  (check-equal? ((listof/p var/p) (list 1 2 3)) '((1 2 3)))
-  (check-equal? ((listof/p (list/p var/p var/p))
+  (check-equal? ((list/p (repeat var/p)) (list 1 2 3)) '((1 2 3)))
+  (check-equal? ((list/p (repeat (list/p var/p var/p)))
                  (list (list 'a 1) (list 'b 2) (list 'c 3)))
                 '((a b c) (1 2 3))))
 
